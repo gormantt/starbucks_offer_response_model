@@ -1,9 +1,9 @@
 # Submission Information
-Author: Tim Gorman
-Date: 2023/03/28
+Author: Tim Gorman </br>
+Project: Starbucks Capstone Challenge
 
 # Definition
-
+This section will provide background on the project, a description of hte problem statement and the proposed solution.
 ## Project Overview
 As part of the Udacity Machine Learning Engineer Course, Starbucks has provided a data science experiment for us to attempt.  This experiment is about understanding what the best offer is for each customer demographic that can be found in the Starbucks app at an invidualized, personalized level. The way that the challenge is presented leaves the door open for different approaches to this challenge. For example, I could build a machine learning model that predicts how much someone will spend based on demographics and offer type, I could build a model that predicts whether or not someone will respond to an offer, or I could decide not to build a machine learning model at all and instead define something like a rules engine.
 
@@ -37,7 +37,7 @@ Here is the schema and explanation of each variable in the files:
 
 To use this data I downloaded it from the provided workspace and uploaded it into my AWS Account for this section of th class.
 
-## Brief Description of Problem and Proposed Solution
+## Brief Description of Problem
 As described in the previous section, there are multiple ways to analyze the Starbucks dataset. For this project, I chose to build a model that predicts whether or not individuals will accept offers presented through the Starbucks app.
 
 ## Solution Statement
@@ -50,9 +50,34 @@ AUC is classification-threshold-invariant (measures quality of prediction indepe
 # Analysis
 
 ## Data Exploration
-If a dataset is present, features and calculated statistics relevant to the problem have been reported and discussed, along with a sampling of the data. In lieu of a dataset, a thorough description of the input space or input data has been made. Abnormalities or characteristics of the data or input that need to be addressed have been identified.
-## Exploratory Visualization
-A visualization has been provided that summarizes or extracts a relevant characteristic or feature about the dataset or input data with thorough discussion. Visual cues are clearly defined.
+My data exploration is all performed in the notebook "01_Exploratory_Data_Analysis". The important aspects of that exploration will be described below.
+
+Before exploring the data the first thing As you can see in above in the [Project Overview Section](#Project-Overview) there are some similar columns between the various data sets but they are not exactly the same so I first normalized names across datasets so that customer ids are "customer_id" and offer_ids are "offer_id". With those column name updates, I will describe the three different datasets below.
+
+### Portfolio
+The portfolio dataset contains all 10 different offers presented in the Starbucks app and can be seen below.
+
+![raw_portfolio.png](./images/raw_portfolio.png)
+
+Each offer has a differing channels that in can be presented through with differing difficulties, rewards, and durations. The bogos come with the highest rewards and the discoutn comes with the highest difficulty. When we go to actually utilize this data in a model, we'll need to extract the individual channels out of the "channels" column and one-hot encode them.
+
+### Profile
+The profile dataset contains the relevant features of customer profiles as can be seen in the image below. "age", "customer_id", and "became_a_member_on" all have non-null values but "gender" and "income" both have null values that will need to be imputed before modeling.
+
+![profile_stats.png](./images/profile_stats.png)
+
+A snapshot of the profile dataset looks like the following.
+
+![raw_profile.png](./images/raw_profile.png)
+ 
+ By inspecting this sample of data we can see that the offer id is hashed like the customer id is from the portfolio dataset, and we can see that gender is presented as a categorical type. One column that stands out is "became_a_member_on", which can be reformed into something like a customer tenure, which I think will have a strong impact on whether or not an offer will be accepted.
+ 
+ We can learn more about our numeric columns by ploting histograms of them, which ar shown below.
+![profile_hist.png](./images/profile_hist.png)
+
+"age" appears to have a fat tail on the distribution towards teh lower end with faster drop off on the higher end accompanied by a spike at the age of 118. We know that there aren't that many profiles with an age equal to 118 so we will be removing that from our dataset that gets fed into the model.
+
+"became_a_member_on" gets grouped 
 
 ## Algorithms and Techniques
 Algorithms and techniques used in the project are thoroughly discussed and properly justified based on the characteristics of the problem.
