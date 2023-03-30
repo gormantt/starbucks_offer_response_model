@@ -1,5 +1,6 @@
 # Submission Information
-Author: Tim Gorman </br>
+Author: Timothy Gorman
+
 Project: Starbucks Capstone Challenge
 
 # Definition
