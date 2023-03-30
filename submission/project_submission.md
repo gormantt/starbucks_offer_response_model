@@ -56,24 +56,24 @@ Before exploring the data the first thing As you can see in above in the [Projec
 ## Portfolio
 The portfolio dataset contains all 10 different offers presented in the Starbucks app and can be seen below.
 
-![raw_portfolio.png](./images/raw_portfolio.png)
+![Raw Portfolio Data](./images/raw_portfolio.png)
 
 Each offer has a differing channels that in can be presented through with differing difficulties, rewards, and durations. The bogos come with the highest rewards and the discoutn comes with the highest difficulty. When we go to actually utilize this data in a model, we'll need to extract the individual channels out of the "channels" column and one-hot encode them.
 
 ## Profile
 The profile dataset contains the relevant features of customer profiles as can be seen in the image below. "age", "customer_id", and "became_a_member_on" all have non-null values but "gender" and "income" both have null values that will need to be imputed before modeling.
 
-![profile_stats.png](./images/profile_stats.png)
+![Profile Info](./images/profile_stats.png)
 
 A snapshot of the profile dataset looks like the following.
 
-![raw_profile.png](./images/raw_profile.png)
+![Raw PRofile Data](./images/raw_profile.png)
  
  By inspecting this sample of data we can see that the offer id is hashed like the customer id is from the portfolio dataset, and we can see that gender is presented as a categorical type. One column that stands out is "became_a_member_on", which can be reformed into something like a customer tenure, which I think will have a strong impact on whether or not an offer will be accepted.
  
  We can learn more about our numeric columns by ploting histograms of them, which ar shown below.
  
-![profile_hist.png](./images/profile_hist.png)
+![Profile Dataset Histograms](./images/profile_hist.png)
 
 "age" appears to have a fat tail on the distribution towards teh lower end with faster drop off on the higher end accompanied by a spike at the age of 118. We know that there aren't that many profiles with an age equal to 118 so we will be removing that from our dataset that gets fed into the model.
 
@@ -102,7 +102,7 @@ My expectation for performance is that a hyper-parameter-tuned LightGBM model wi
 # Methodology
 
 ## Data Preprocessing and Feature Engineering
-A significant portion of the time for this project was spent on preprocessing the datasets for the LightGBM and Logistic Regression models.  I will first describe how I preprocessed each dataset and then how the were joined, cleaned and labeled. All of these preprocessing and feature engineering steps can be found in the "02_Feature_Generation.ipynb".
+A significant portion of the time for this project was spent on preprocessing the datasets for the LightGBM and Logistic Regression models.  I will first describe how I preprocessed each dataset and then how the were joined, labeled, and finalized for the model. All of these preprocessing and feature engineering steps can be found in the "02_Feature_Generation.ipynb".
 
 ### Portfolio
 To prepare the portfolio dataset for modeling I decide to one-hot encode both the "offer_type" column and the "channels" column using using the Sci-Kit Learn MultilabelBinarizer method and the Pandas get_dummies method, respectively. A snapshot of the final portfolio dataset is below.
@@ -134,51 +134,98 @@ When a successful offer was found, the associated "offer recieved" record was la
 
 After labeling the dataset was found to be somewhat imbalanced with 30.5% of records haveing an "offer_successful" label of 1 and 69.5% having and "offer_succesful" label of 0.
 
-### The Final Dataset: Train, Val, Test Split
+### The Final Dataset: Train, Validation, Test Split
 The columns of the final dataset were filtered down to the following, where "offer_successful" is the target column:
 
-* 'reward',
-* 'difficulty',
-* 'duration',
-* 'email',
-* 'mobile',
-* 'social',
-* 'web',
-* 'bogo',
-* 'discount',
-* 'informational',
-* 'F',
-* 'M',
-* 'O',
-* 'no_G',
-* 'age1',
-* 'age2',
-* 'age3',
-* 'age4',
-* 'inc1',
-* 'inc2',
-* 'inc3',
-* 'inc4',
-* 'inc_miss',
-* 'years_as_member',
-* 'offer_successful'
+|Feature #| Feature|
+|---------|--------|
+|Target   | offer_successful|
+|1        |reward|
+|2        |difficulty|
+|3        |duration|
+|4        |email|
+|5        |mobile|
+|6        |social|
+|7        |web|
+|8        |bogo|
+|9        |discount|
+|10        |informational|
+|11       |F|
+|12       |M|
+|13       |O|
+|14       |no_G|
+|15       |age1|
+|16       |age2|
+|17       |age3|
+|18       |age4|
+|19       |inc1|
+|20       |inc2|
+|21       |inc3|
+|22       |inc4|
+|23       |inc_miss|
+|24       |years_as_member|
 
 The only records kept were those for "offer received" events, all other records were dropped because they were not considered relevent or were redundant.
 
 The data was then split into training, validation, and testing datasets using a stratified train-test split method from Sci-Kit Learn with 75% of the data in the training set the remaining 25% split between the testing and validation datasets.
+
+The data was then sent to s3 buckets from where it was loaded into the training jobs described in the next section.
+
 ## Implementation
-Model training was accomplished in the "03_model_training.ipynb" notebook and the training process therein is described below. 
+Model training was accomplished in the "03_model_training.ipynb" notebook and the training process therein is described below. I largely based the training steps on this [AWS example notebook in Github](https://github.com/aws/amazon-sagemaker-examples/blob/main/introduction_to_amazon_algorithms/lightgbm_catboost_tabular/Amazon_Tabular_Classification_LightGBM_CatBoost.ipynb) and this ["How to Use Sagemaker LightGBM" Documentation](https://docs.aws.amazon.com/sagemaker/latest/dg/lightgbm.html).
 
+### LightGBM Training
+Like I mentioned before, I decided to use the AWS Sagemaker implementation of the LightGBM classification model.  This was convenient because that implementation provided the relevant images, training script, and inference script. In order to see the benefit of hyperparameter tuning I first trained the LightGBM model without hyperparameter tuning using the sagemaker.estimator.Estimator.fit method. I used the defualt hyperparemeters associated with the Sagemaker implementation of the LightGBM model except for setting the "metric" hyperparameter equal to "binary_logloss" and the "num_boost_round" hyperparameter = 500. Training involved training on the training dateset and validating on the validation dataset for each epoch of the training job.
 
-The process for which metrics, algorithms, and techniques were implemented with the given datasets or input data has been thoroughly documented. Complications that occurred during the coding process are discussed.
+After finishing that training job, I then proceeded to tune the LightGBM model with the following hyperparameter ranges using the sagemaker.tuner.HyperparameterTuner method.
 
-## Refinement
-The process of improving upon the algorithms and techniques used is clearly documented. Both the initial and final solutions are reported, along with intermediate solutions, if necessary.
+```
+hyperparameter_ranges = {
+    "learning_rate": ContinuousParameter(1e-4, 1, scaling_type="Logarithmic"),
+    "num_boost_round": IntegerParameter(50, 1000),
+    "early_stopping_rounds": IntegerParameter(2, 30),
+    "num_leaves": IntegerParameter(10, 50),
+    "feature_fraction": ContinuousParameter(0, 1),
+    "bagging_fraction": ContinuousParameter(0, 1),
+    "bagging_freq": IntegerParameter(1, 10),
+    "max_depth": IntegerParameter(5, 30),
+    "min_data_in_leaf": IntegerParameter(5, 50)
+}
+```
+The best estimator from the tuning job was retained for comparsion to the untuned estimator.
+The untuned and tuned model binaries can be found in the "trained_models/lightgbm" folder under "untuned_model" and "tuned_model", respectively.
 
+### Logistic Regression Training
+As the benchmark comparison I used the Sagemaker implementation of the Sci-kit Learn linear classification model. This training was done using the defualt hyperparameters provided by Sagemaker.
 # Results
 
-## Model Evaluation and Validation
-The final model’s qualities—such as parameters—are evaluated in detail. Some type of analysis is used to validate the robustness of the model’s solution.
+## Comparing the Tuned and Untuned LightGBM Models.
 
-## Justification
-The final results are compared to the benchmark result or threshold with some type of statistical analysis. Justification is made as to whether the final model and solution is significant enough to have adequately solved the problem.
+The two LightGBM models were compared on the test.csv data set created in the step 02 notebook using the AUC score which are seen below for each model.
+
+|Model     | AUC Score    |
+|----------|--------------|
+|Tuned     |0.8389        |
+|Untuned   |0.8381        |
+
+The above results are practically identical which means that the hyperparameter tuning as conducted here may have room for further improvement and is saved for future improvements. For now, because these results are so similar, I can choose proceed with the tuned model for further results and analysis.
+
+The ROC curve for the tuned LightGBM model can be seen below. From this curve you can see a few things. First, the curve looks appropriately convex-upward. A model of random guessing would be a line with slope 1 and an intercept of 0. Becuase the curve is convex-upward and above a "random guess" line, we can conclude that the tuned model did better than randomly guessing. In order to extract the best threshold we can use the [Youden's J statistc](https://en.wikipedia.org/wiki/Youden%27s_J_statistic) which gives us a threshold of 0.350969.
+
+![Tuned LightGBM ROC Curve](./images/roc_curve.png)
+
+Below you can see a figure describing feature importances of the tuned light GBM model (see the table under section "[The Final Dataset: Train, Validation, Test Split](#The-Final-Dataset:-Train,-Validation,-Test-Split)" for feature names). The top 3 most important features were "years_as_member", "reward", and "difficulty" in that order. I think that this fits my general intuition that your duration as a customer impacts you likeliness to respond to an offer. Additionally, I intuitely believe that "reward" is an important factor because cash rewards are a often-used tactic in marketing campaigns.  For example, banks often use premiums to encourage customers to respond to offers just like this Starbuck App. I also understand why "difficulty" (minimum spend) is an important feature because you are asking customers to give up more of their own money in order to complete an offer, something that people are just less inclined to do. 
+![Feature Importance](./images/feature_importance.png)
+
+## Comparing the Tuned LightGBM and Logistic Regression Models
+Below is table of comparing the relevant metrics for the LightGBM and Logistic Regression Models.
+
+|Model     | AUC Score    |Accuracy    |F1 Score    |
+|----------|--------------|------------|------------|
+|Tuned LGBM|0.8389        |0.7477      |0.6433      |
+|Logistic Regression|0.8381| 0.759     | 0.5588     |
+
+The results of these two models is nearly identical again, just as we saw above when comparing the tuned and untuned LightGBM models. The differences in Accuracy and F1 score can likely be attributed to the different thresholds used in those calculations between the two models
+## Conclusions and Future Improvements
+Because all three models had similar AUC scores, I think it's fair to conclude that we've extracted nearly all the predictive power out of the features that I created as they exist now. 
+I don't believe much will be gained by exploring hyperparameter tuning ranges in future iterations because of this. More gains will likely be gotten by creative feature engineering such as adding a feature that is a sum of transactions up to the time that the offer is received. This feature would tell the model something about a customer's willingness to spend money in the Starbucks app.  In a real world situation, another simple improvement would be to expand the dataset and collect more records for training.
